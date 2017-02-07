@@ -64,9 +64,18 @@ function pinger(id) {
 }
 
 function merge(conn, sid) {
-    clearTimeout(sessions[sid].timeout);
+    if (conn.sessionId === sid) return;
     clearInterval(sessions[conn.sessionId].pinger);
+    if (!(sid in sessions)) {
+        sessions[sid] = {connections: [conn], pinger: pinger(conn.sid), timeout: function() {}};
+        delete scrims[conn.sessionId];
+        delete sessions[conn.sessionId];
+        conn.sessionId = sid;
+        return;
+    }
+
     delete sessions[conn.sessionId];
+    clearTimeout(sessions[sid].timeout);
     sessions[sid].connections.push(conn);
 
     if (conn.sessionId in scrims) {
@@ -93,7 +102,7 @@ function handle(conn, data) {
     switch (data.header.toUpperCase()) {
         case "IDENT":
             var oldSid = parseInt(data.body);
-            if (isFinite(oldSid) && oldSid in sessions) {
+            if (isFinite(oldSid)) {
                 console.log("Switch", conn.sessionId, "to", oldSid);
                 merge(conn, oldSid);
             }
