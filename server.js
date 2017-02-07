@@ -36,6 +36,7 @@ function send(sid, header, body) {
     var m = message(header, body);
     if (m.error) {
         console.log("Error:", errors.msgFailed, m.error);
+        return;
     }
     if (!(sid in sessions)) {
         console.log("Error:", errors.sendFailed, "Session with that ID not found.");
@@ -67,7 +68,7 @@ function merge(conn, sid) {
     if (conn.sessionId === sid) return;
     clearInterval(sessions[conn.sessionId].pinger);
     if (!(sid in sessions)) {
-        sessions[sid] = {connections: [conn], pinger: pinger(conn.sid), timeout: function() {}};
+        sessions[sid] = {connections: [conn], pinger: pinger(conn.sessionId), timeout: function() {}};
         delete scrims[conn.sessionId];
         delete sessions[conn.sessionId];
         conn.sessionId = sid;
