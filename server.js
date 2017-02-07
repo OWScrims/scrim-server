@@ -1,61 +1,87 @@
 var ws = require("nodejs-websocket");
 
-// {header: "", body: "", timestamp: ""}
-// {contact: "", tier: "", region: ""}
-var server;
+var server = null;
+var settings = {
+        pingInterval: 30*1000, // ms
+        sessionTimeout: 2*60*1000 // ms
+};
 var errors = {
-    "malformed": "Malformed data",
-    "unknownHeader": "Unknown header"
-}
+    msgFailed: "Message construction failed.",
+    sendFailed: "Message sending failed.",
+    parseFailed: "Message parse failed.",
+    malformed: "Message malformed.",
+    unknownHeader: "Unknown header."
+};
 
+// id: {connections: [], timeout: f, pinger: f}
+var sessions = {};
+
+// sessionId: {contact: "", tier: "", region: ""}
+var scrims = {};
 var tiers = ["Low", "Mid", "High", "High+", "High++"];
 var regions = ["SEA", "NA", "EU"];
 
-var conns = {};
-var scrims = {};
-var cancels = {};
-var pingers = {};
-
-function msg(header, body) {
-    var data = null;
+function message(header, body) {
+    var m = {header: header.toUpperCase(), body: body, timestamp: +new Date()};
     try {
-        data = JSON.stringify({
-            header: header.toUpperCase(),
-            body: body,
-            timestamp: +new Date()
-        });
-    } catch(err) {
-        console.log(err);
-    }
-    return data;
-}
-
-function send(conn, header, body) {
-    try {
-        var m = msg(header, body);
-        if (!m) throw "JSON.stringify failed";
-        conn.send(m);
-        console.log("Sent", header);
-    } catch(err) {
-        console.log(err);
+        m = JSON.stringify(m);
+    } catch (e) {
+        return {message: null, error: e};
+    } finally {
+        return {message: m, error: null};
     }
 }
 
-function broadcast(header, data) {
-    server.connections.forEach(function(conn) {
-        send(conn, header, data);
-    })
+function send(sid, header, body) {
+    var m = message(header, body);
+    if (m.error) {
+        console.log("Error:", errors.msgFailed, m.error);
+    }
+    if (!(sid in sessions)) return;
+    sessions[sid].connections.forEach(function(c) {
+        if (c.readyState != c.OPEN) return;
+        try {
+            c.send(m.message);
+        } catch(err) {
+            console.log("Error:", errors.sendFailed, err);
+        }
+    });
 }
 
-function ping(id) {
-    return setInterval(function() {
-        send(conns[id], "PING", +new Date());
-    }, 30 * 1000);
+function broadcast(header, body) {
+    for (var sid = 0; sid < sessions.length; sid++) {
+        send(sid, header, body);
+    }
 }
 
-function handle(id, data) {
+function pinger(id) {
+    return setInterval(function () {
+        send(id, "PING", null);
+    }, settings.pingInterval);
+}
+
+function merge(conn, sid) {
+    clearTimeout(sessions[sid].timeout);
+    clearInterval(sessions[conn.sessionId].pinger);
+    delete sessions[conn.sessionId];
+    sessions[sid].connections.push(conn);
+
+    if (conn.sessionId in scrims) {
+        scrims[sid] = scrims[conn.sessionId];
+        delete scrims[conn.sessionId];
+        update();
+    }
+    conn.sessionId = sid;
+}
+
+function update() {
+    broadcast("UPDATE", scrims);
+    console.log("Scrims:", scrims);
+}
+
+function handle(conn, data) {
     if (!("header" in data) || !("body" in data)) {
-        send(conns[id], "ERROR", errors.malformed);
+        send(conn.sessionId, "ERROR", errors.malformed);
         return;
     }
     data.header = data.header || "";
@@ -63,89 +89,76 @@ function handle(id, data) {
 
     switch (data.header.toUpperCase()) {
         case "IDENT":
-            var oldId = parseInt(data.body);
-            if (isFinite(oldId)) {
-                console.log("Switch", id, oldId);
-
-                conns[oldId] = conns[id];
-                conns[oldId].id = oldId;
-                delete conns[id];
-
-                clearTimeout(cancels[oldId]);
-                delete cancels[oldId];
-
-                pingers[oldId] = ping(oldId);
-                clearTimeout(pingers[id]);
-                delete pingers[id];
-
-                if (id in scrims) {
-                    scrims[oldId] = scrims[id];
-                    delete scrims[id];
-                    console.log("Scrims:", scrims);
-                }
+            var oldSid = parseInt(data.body);
+            if (isFinite(oldSid)) {
+                console.log("Switch", conn.sessionId, "to", oldSid);
+                merge(conn, oldSid);
             }
             break;
-            return;
         case "SET":
             if (typeof data.body !== "object") {
-                send(conns[id], "ERROR", errors.malformed);
+                send(conn.sessionId, "ERROR", errors.malformed);
                 break;
             }
             if (!("tier" in data.body) || !("region" in data.body) || !("contact" in data.body)) {
-                send(conns[id], "ERROR", errors.malformed);
+                send(conn.sessionId, "ERROR", errors.malformed);
                 break;
             }
             if (tiers.indexOf(data.body.tier) < 0 || regions.indexOf(data.body.region) < 0 || data.body.contact.length > 20) {
-                send(conns[id], "ERROR", errors.malformed);
+                send(conn.sessionId, "ERROR", errors.malformed);
                 break;
             }
-            scrims[id] = {contact: data.body.contact, region: data.body.region, tier: data.body.tier};
-            console.log("Scrims:", scrims);
-            broadcast("UPDATE", scrims);
+            scrims[conn.sessionId] = {contact: data.body.contact, region: data.body.region, tier: data.body.tier};
+            update();
             break;
         case "CLEAR":
-            delete scrims[id];
-            console.log("Scrims:", scrims);
-            broadcast("UPDATE", scrims);
+            delete scrims[conn.sessionId];
+            update();
             break;
         case "PONG":
             break;
         default:
-            send(conns[id], "ERROR", errors.unknownHeader);
+            send(conns[conn.sessionId], "ERROR", errors.unknownHeader);
     }
 }
 
 server = ws.createServer(function(conn) {
-    conn.id = +new Date;
-    conns[conn.id] = conn;
-    console.log("Connection", conn.id);
+    conn.id = +new Date();
+    conn.sessionId = +new Date();
     while (conn.readyState == conn.CONNECTING) {}
-    send(conn, "IDENT", conn.id);
-    send(conn, "UPDATE", scrims);
-    pingers[conn.id] = ping(conn.id);
+    sessions[conn.sessionId] = {connections: [conn], pinger: pinger(conn.sessionId), timeout: function() {}};
+    update();
 
     conn.on("text", function(str) {
         var data;
         try {
             data = JSON.parse(str);
         } catch(err) {
-            console.log("Error:", err, conn.id);
+            console.log("Error:", errors.parseFailed, err);
             return;
         }
         if (!data) return;
         console.log("Received:", data);
-        handle(conn.id, data);
+        handle(conn, data);
     });
 
     conn.on("close", function(code, reason) {
-        delete conns[conn.id];
-        delete pingers[conn.id];
-        console.log("Closed", conn.id, code, reason);
-        cancels[conn.id] = setTimeout(function() {
-            clearInterval(pingers[conn.id]);
-            delete scrims[conn.id];
-            delete cancels[conn.id];
-            broadcast("UPDATE", scrims);
-        }, 60 * 1000);
+        if (conn.sessionId in sessions) {
+            for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
+                var c = sessions[conn.sessionId].connections[i];
+                if (c.id === conn.id) {
+                    sessions[conn.sessionId].connections.splice(i, 1);
+                    break;
+                }
+            }
+            if (sessions[conn.sessionId].connections.length < 1) {
+                sessions[conn.sessionId].timeout = setTimeout(function() {
+                    delete scrims[conn.sessionId];
+                    clearInterval(sessions[conn.sessionId].pinger);
+                    delete sessions[conn.sessionId];
+                    update();
+                }, settings.sessionTimeout);
+            }
+        }
     });
 }).listen(process.env.PORT || 8000);
