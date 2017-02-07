@@ -38,8 +38,8 @@ function send(sid, header, body) {
         console.log("Error:", errors.msgFailed, m.error);
     }
     if (!(sid in sessions)) return;
+    console.log(sid, "<-", header, body);
     sessions[sid].connections.forEach(function(c) {
-        if (c.readyState != c.OPEN) return;
         try {
             c.send(m.message);
         } catch(err) {
