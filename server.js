@@ -142,6 +142,7 @@ server = ws.createServer(function(conn) {
     conn.sessionId = +new Date();
     while (conn.readyState == conn.CONNECTING) {}
     sessions[conn.sessionId] = {connections: [conn], timeout: function() {}};
+    console.log(conn.sessionId, "connected.");
     send(conn.sessionId, "IDENT", conn.sessionId);
     update();
 
@@ -159,6 +160,7 @@ server = ws.createServer(function(conn) {
     });
 
     conn.on("close", function(code, reason) {
+        console.log(conn.sessionId, "disconnected:", code, reason);
         if (conn.sessionId in sessions) {
             for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
                 var c = sessions[conn.sessionId].connections[i];
