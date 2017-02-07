@@ -90,7 +90,7 @@ function handle(conn, data) {
     switch (data.header.toUpperCase()) {
         case "IDENT":
             var oldSid = parseInt(data.body);
-            if (isFinite(oldSid)) {
+            if (isFinite(oldSid) && oldSid in sessions) {
                 console.log("Switch", conn.sessionId, "to", oldSid);
                 merge(conn, oldSid);
             }
