@@ -126,6 +126,7 @@ server = ws.createServer(function(conn) {
     conn.id = +new Date();
     conn.sessionId = +new Date();
     while (conn.readyState == conn.CONNECTING) {}
+    send(conn.sessionId, "IDENT", conn.sessionId);
     sessions[conn.sessionId] = {connections: [conn], pinger: pinger(conn.sessionId), timeout: function() {}};
     update();
 
