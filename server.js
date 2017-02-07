@@ -13,7 +13,7 @@ var errors = {
     unknownHeader: "Unknown header."
 };
 
-// id: {connections: [], timeout: f, pinger: f}
+// id: {connections: [], timeout: f}
 var sessions = {};
 
 // sessionId: {contact: "", tier: "", region: ""}
@@ -58,17 +58,16 @@ function broadcast(header, body) {
     }
 }
 
-function pinger(id) {
+function pinger() {
     return setInterval(function () {
-        send(id, "PING", null);
+        broadcast("PING", null)
     }, settings.pingInterval);
 }
 
 function merge(conn, sid) {
     if (conn.sessionId === sid) return;
-    clearInterval(sessions[conn.sessionId].pinger);
     if (!(sid in sessions)) {
-        sessions[sid] = {connections: [conn], pinger: pinger(conn.sessionId), timeout: function() {}};
+        sessions[sid] = {connections: [conn], timeout: function() {}};
         delete scrims[conn.sessionId];
         delete sessions[conn.sessionId];
         conn.sessionId = sid;
@@ -137,11 +136,12 @@ function handle(conn, data) {
     }
 }
 
+pinger();
 server = ws.createServer(function(conn) {
     conn.id = +new Date();
     conn.sessionId = +new Date();
     while (conn.readyState == conn.CONNECTING) {}
-    sessions[conn.sessionId] = {connections: [conn], pinger: pinger(conn.sessionId), timeout: function() {}};
+    sessions[conn.sessionId] = {connections: [conn], timeout: function() {}};
     send(conn.sessionId, "IDENT", conn.sessionId);
     update();
 
@@ -170,7 +170,6 @@ server = ws.createServer(function(conn) {
             if (sessions[conn.sessionId].connections.length < 1) {
                 sessions[conn.sessionId].timeout = setTimeout(function() {
                     delete scrims[conn.sessionId];
-                    clearInterval(sessions[conn.sessionId].pinger);
                     delete sessions[conn.sessionId];
                     update();
                 }, settings.sessionTimeout);
