@@ -54,7 +54,7 @@ function send(sid, header, body) {
 
 function broadcast(header, body) {
     for (sid in sessions) {
-        send(sessions[sid], header, body);
+        send(sid, header, body);
     }
 }
 
