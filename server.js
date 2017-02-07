@@ -39,7 +39,7 @@ function send(sid, header, body) {
         return;
     }
     if (!(sid in sessions)) {
-        console.log("Error:", errors.sendFailed, "Session with that ID not found.");
+        console.log("Error:", errors.sendFailed, "Session with that ID not found.", sid);
         return;
     }
     console.log(sid, "<-", header, body);
@@ -60,7 +60,7 @@ function broadcast(header, body) {
 
 function pinger() {
     setInterval(function () {
-        broadcast("PING", null)
+        broadcast("PING", null);
     }, settings.pingInterval);
 }
 
@@ -160,7 +160,7 @@ server = ws.createServer(function(conn) {
     });
 
     conn.on("close", function(code, reason) {
-        console.log(conn.sessionId, "disconnected:", code, reason);
+        console.log(conn.id, "disconnected:", code, reason);
         if (conn.sessionId in sessions) {
             for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
                 var c = sessions[conn.sessionId].connections[i];
