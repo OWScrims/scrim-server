@@ -88,7 +88,7 @@ function merge(conn, sid) {
 
 function update() {
     broadcast("UPDATE", scrims);
-    console.log("Scrims:", scrims);
+    console.log("Scrims:", Object.values(scrims));
 }
 
 function handle(conn, data) {
@@ -131,6 +131,7 @@ function handle(conn, data) {
             break;
         case "SESSIONS":
             console.log(Object.keys(sessions));
+            break;
         default:
             send(conn.sessionId, "ERROR", errors.unknownHeader + ": " + data.header);
     }
