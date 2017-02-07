@@ -129,6 +129,8 @@ function handle(conn, data) {
             break;
         case "PONG":
             break;
+        case "SESSIONS":
+            console.log(Object.keys(sessions));
         default:
             send(conns[conn.sessionId], "ERROR", errors.unknownHeader);
     }
