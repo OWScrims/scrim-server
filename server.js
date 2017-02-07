@@ -132,7 +132,7 @@ function handle(conn, data) {
         case "SESSIONS":
             console.log(Object.keys(sessions));
         default:
-            send(sessions[conn.sessionId], "ERROR", errors.unknownHeader);
+            send(conn.sessionId, "ERROR", errors.unknownHeader + ": " + data.header);
     }
 }
 
