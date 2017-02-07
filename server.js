@@ -53,13 +53,13 @@ function send(sid, header, body) {
 }
 
 function broadcast(header, body) {
-    for (var i = 0; i < sessions.length; i++) {
-        send(sessions[i], header, body);
+    for (sid in sessions) {
+        send(sessions[sid], header, body);
     }
 }
 
 function pinger() {
-    return setInterval(function () {
+    setInterval(function () {
         broadcast("PING", null)
     }, settings.pingInterval);
 }
