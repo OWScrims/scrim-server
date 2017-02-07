@@ -37,7 +37,10 @@ function send(sid, header, body) {
     if (m.error) {
         console.log("Error:", errors.msgFailed, m.error);
     }
-    if (!(sid in sessions)) return;
+    if (!(sid in sessions)) {
+        console.log("Error:", errors.sendFailed, "Session with that ID not found.");
+        return;
+    }
     console.log(sid, "<-", header, body);
     sessions[sid].connections.forEach(function(c) {
         try {
