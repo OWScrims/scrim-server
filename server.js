@@ -52,8 +52,8 @@ function send(sid, header, body) {
 }
 
 function broadcast(header, body) {
-    for (var sid = 0; sid < sessions.length; sid++) {
-        send(sid, header, body);
+    for (var i = 0; i < sessions.length; i++) {
+        send(sessions[i], header, body);
     }
 }
 
