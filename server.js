@@ -1,4 +1,5 @@
 var ws = require("nodejs-websocket");
+var guid = require("guid");
 
 var server = null;
 var settings = {
@@ -87,8 +88,12 @@ function merge(conn, sid) {
 }
 
 function update() {
-    broadcast("UPDATE", scrims);
-    console.log("Scrims:", Object.values(scrims));
+    var data = [];
+    for (k in scrims) {
+        data.push(scrims[k]);
+    }
+    broadcast("UPDATE", data);
+    console.log("Scrims:", data);
 }
 
 function handle(conn, data) {
@@ -139,8 +144,8 @@ function handle(conn, data) {
 
 pinger();
 server = ws.createServer(function(conn) {
-    conn.id = +new Date();
-    conn.sessionId = +new Date();
+    conn.id = guid.create().value;
+    conn.sessionId = guid.create().value;
     while (conn.readyState == conn.CONNECTING) {}
     sessions[conn.sessionId] = {connections: [conn], timeout: function() {}};
     console.log(conn.sessionId, "connected.");
