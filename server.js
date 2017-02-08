@@ -14,10 +14,8 @@ process.stdout.on("error", function(err) {
 var app = express(),
     httpServer = require("http").createServer(app);
 
-app.configure(function () {
-    app.get("/", function(req, res) {
-        res.send("Test");
-    });
+app.get("/", function(req, res) {
+    res.send("Test");
 });
 httpServer.listen(process.env.PORT || 8000);
 
