@@ -105,8 +105,8 @@ function handle(conn, data) {
 
     switch (data.header.toUpperCase()) {
         case "IDENT":
-            var oldSid = parseInt(data.body);
-            if (isFinite(oldSid)) {
+            var oldSid = data.body;
+            if (oldSid) {
                 console.log("Switch", conn.sessionId, "to", oldSid);
                 merge(conn, oldSid);
             }
@@ -165,26 +165,22 @@ server = ws.createServer(function(conn) {
     });
 
     conn.on("close", function(code, reason) {
-        try {
-            console.log(conn.id, "disconnected:", code, reason);
-            if (conn.sessionId in sessions) {
-                for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
-                    var c = sessions[conn.sessionId].connections[i];
-                    if (c.id === conn.id) {
-                        sessions[conn.sessionId].connections.splice(i, 1);
-                        break;
-                    }
-                }
-                if (sessions[conn.sessionId].connections.length < 1) {
-                    sessions[conn.sessionId].timeout = setTimeout(function() {
-                        delete scrims[conn.sessionId];
-                        delete sessions[conn.sessionId];
-                        update();
-                    }, settings.sessionTimeout);
+        console.log(conn.id, "disconnected:", code, reason);
+        if (conn.sessionId in sessions) {
+            for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
+                var c = sessions[conn.sessionId].connections[i];
+                if (c.id === conn.id) {
+                    sessions[conn.sessionId].connections.splice(i, 1);
+                    break;
                 }
             }
-        } catch(err) {
-            console.log("Error:", err);
+            if (sessions[conn.sessionId].connections.length < 1) {
+                sessions[conn.sessionId].timeout = setTimeout(function() {
+                    delete scrims[conn.sessionId];
+                    delete sessions[conn.sessionId];
+                    update();
+                }, settings.sessionTimeout);
+            }
         }
     });
 }).listen(process.env.PORT || 8000);
