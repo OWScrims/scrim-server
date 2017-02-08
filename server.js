@@ -1,5 +1,15 @@
 var ws = require("nodejs-websocket");
 
+process.stdout.on("error", function(err) {
+    console.log("ERROR:", err, err.code);
+    switch (err.code) {
+        case "EPIPE":
+            break;
+        default:
+            process.exit(0);
+    }
+});
+
 var server = null;
 var settings = {
         pingInterval: 30*1000, // ms
