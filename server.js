@@ -91,7 +91,6 @@ function update() {
     for (k in scrims) {
         data.push(scrims[k]);
     }
-    if (data.length < 1) return;
     broadcast("UPDATE", data);
     console.log("Scrims:", data);
 }
