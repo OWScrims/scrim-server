@@ -161,7 +161,11 @@ server = ws.createServer(function(conn) {
         }
         if (!data) return;
         console.log("Received:", data);
-        handle(conn, data);
+        try {
+            handle(conn, data);
+        } catch(err) {
+            console.error(err);
+        }
     });
 
     conn.on("close", function(code, reason) {
