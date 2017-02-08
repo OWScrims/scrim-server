@@ -64,7 +64,7 @@ function send(sid, header, body) {
     console.log(sid, "<-", header, body);
     sessions[sid].connections.forEach(function(c) {
         try {
-            c.send(m.message);
+            if (c.readyState === c.OPEN) c.send(m.message);
         } catch(err) {
             console.log("Error:", errors.sendFailed, err);
         }
