@@ -91,6 +91,7 @@ function update() {
     for (k in scrims) {
         data.push(scrims[k]);
     }
+    if (data.length < 1) return;
     broadcast("UPDATE", data);
     console.log("Scrims:", data);
 }
@@ -161,30 +162,30 @@ server = ws.createServer(function(conn) {
         }
         if (!data) return;
         console.log("Received:", data);
-        try {
-            handle(conn, data);
-        } catch(err) {
-            console.error(err);
-        }
+        handle(conn, data);
     });
 
     conn.on("close", function(code, reason) {
-        console.log(conn.id, "disconnected:", code, reason);
-        if (conn.sessionId in sessions) {
-            for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
-                var c = sessions[conn.sessionId].connections[i];
-                if (c.id === conn.id) {
-                    sessions[conn.sessionId].connections.splice(i, 1);
-                    break;
+        try {
+            console.log(conn.id, "disconnected:", code, reason);
+            if (conn.sessionId in sessions) {
+                for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
+                    var c = sessions[conn.sessionId].connections[i];
+                    if (c.id === conn.id) {
+                        sessions[conn.sessionId].connections.splice(i, 1);
+                        break;
+                    }
+                }
+                if (sessions[conn.sessionId].connections.length < 1) {
+                    sessions[conn.sessionId].timeout = setTimeout(function() {
+                        delete scrims[conn.sessionId];
+                        delete sessions[conn.sessionId];
+                        update();
+                    }, settings.sessionTimeout);
                 }
             }
-            if (sessions[conn.sessionId].connections.length < 1) {
-                sessions[conn.sessionId].timeout = setTimeout(function() {
-                    delete scrims[conn.sessionId];
-                    delete sessions[conn.sessionId];
-                    update();
-                }, settings.sessionTimeout);
-            }
+        } catch(err) {
+            console.log("Error:", err);
         }
     });
 }).listen(process.env.PORT || 8000);
