@@ -1,5 +1,4 @@
 var ws = require("nodejs-websocket");
-var guid = require("guid");
 
 var server = null;
 var settings = {
@@ -144,8 +143,8 @@ function handle(conn, data) {
 
 pinger();
 server = ws.createServer(function(conn) {
-    conn.id = guid.create().value;
-    conn.sessionId = guid.create().value;
+    conn.id = uuid();
+    conn.sessionId = uuid();
     while (conn.readyState == conn.CONNECTING) {}
     sessions[conn.sessionId] = {connections: [conn], timeout: function() {}};
     console.log(conn.sessionId, "connected.");
@@ -185,3 +184,7 @@ server = ws.createServer(function(conn) {
         }
     });
 }).listen(process.env.PORT || 8000);
+
+function uuid(a){
+    return a?(a^Math.random()*16>>a/4).toString(16):([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,b)
+}
