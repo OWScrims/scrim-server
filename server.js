@@ -1,4 +1,5 @@
-var ws = require("nodejs-websocket");
+var ws = require("nodejs-websocket"),
+    express = require("express");
 
 process.stdout.on("error", function(err) {
     console.log("ERROR:", err, err.code);
@@ -10,7 +11,17 @@ process.stdout.on("error", function(err) {
     }
 });
 
-var server = null;
+var app = express(),
+    httpServer = require("http").createServer(app);
+
+app.configure(function () {
+    app.get("/", function(req, res) {
+        res.send("Test");
+    });
+});
+httpServer.listen(process.env.PORT || 8000);
+
+var wsServer = null;
 var settings = {
         pingInterval: 30*1000, // ms
         sessionTimeout: 2*60*1000 // ms
@@ -152,7 +163,7 @@ function handle(conn, data) {
 }
 
 pinger();
-server = ws.createServer(function(conn) {
+wsServer = ws.createServer(function(conn) {
     conn.id = uuid();
     conn.sessionId = uuid();
     while (conn.readyState == conn.CONNECTING) {}
@@ -193,7 +204,7 @@ server = ws.createServer(function(conn) {
             }
         }
     });
-}).listen(process.env.PORT || 8000);
+}).listen(httpServer);
 
 function uuid(a){
     return a?(a^Math.random()*16>>a/4).toString(16):([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,uuid)
