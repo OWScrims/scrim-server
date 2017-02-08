@@ -164,7 +164,6 @@ pinger();
 wsServer = ws.createServer(function(conn) {
     conn.id = uuid();
     conn.sessionId = uuid();
-    while (conn.readyState == conn.CONNECTING) {}
     sessions[conn.sessionId] = {connections: [conn], timeout: function() {}};
     console.log(conn.sessionId, "connected.");
     send(conn.sessionId, "IDENT", conn.sessionId);
