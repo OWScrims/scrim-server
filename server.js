@@ -15,7 +15,7 @@ var app = express(),
     httpServer = require("http").createServer(app);
 
 app.get("/test", function(req, res) {
-    res.send("test");
+    console.log(req);
 });
 httpServer.listen(process.env.PORT || 8000);
 
