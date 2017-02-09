@@ -21,8 +21,8 @@ httpServer.listen(process.env.PORT || 8000);
 
 var wsServer = null;
 var settings = {
-        pingInterval: 30*1000, // ms
-        sessionTimeout: 2*60*1000 // ms
+    pingInterval: 30*1000, // ms
+    sessionTimeout: 2*60*1000 // ms
 };
 var errors = {
     msgFailed: "Message construction failed.",
@@ -41,6 +41,7 @@ var tiers = ["Low", "Mid", "High", "High+", "High++"];
 var regions = ["SEA", "NA", "EU"];
 
 function message(header, body) {
+    console.log("Constructing message...");
     var m = {header: header.toUpperCase(), body: body, timestamp: +new Date()};
     try {
         m = JSON.stringify(m);
@@ -52,6 +53,7 @@ function message(header, body) {
 }
 
 function send(sid, header, body) {
+    console.log("Sending message to session...");
     var m = message(header, body);
     if (m.error) {
         console.log("Error:", errors.msgFailed, m.error);
@@ -64,6 +66,7 @@ function send(sid, header, body) {
     console.log(sid, "<-", header, body);
     sessions[sid].connections.forEach(function(c) {
         try {
+            console.log("Sending message to a client...");
             if (c.readyState === c.OPEN) c.send(m.message);
         } catch(err) {
             console.log("Error:", errors.sendFailed, err);
@@ -72,6 +75,7 @@ function send(sid, header, body) {
 }
 
 function broadcast(header, body) {
+    console.log("Broadcasting message...");
     for (sid in sessions) {
         send(sid, header, body);
     }
@@ -79,11 +83,13 @@ function broadcast(header, body) {
 
 function pinger() {
     setInterval(function () {
+        console.log("Pinging...");
         broadcast("PING", null);
     }, settings.pingInterval);
 }
 
 function merge(conn, sid) {
+    console.log("Merging sessions...");
     if (conn.sessionId === sid) return;
     if (!(sid in sessions)) {
         sessions[sid] = {connections: [conn], timeout: function() {}};
@@ -106,6 +112,7 @@ function merge(conn, sid) {
 }
 
 function update() {
+    console.log("Updating...");
     var data = [];
     for (k in scrims) {
         data.push(scrims[k]);
@@ -204,5 +211,6 @@ wsServer = ws.createServer(function(conn) {
 }).listen(httpServer);
 
 function uuid(a){
+    console.log("Constructing UUID...");
     return a?(a^Math.random()*16>>a/4).toString(16):([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,uuid)
 }
