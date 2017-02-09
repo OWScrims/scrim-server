@@ -1,5 +1,4 @@
-var WebSocket = require("ws"),
-    http = require("http"),
+var ws = require("nodejs-websocket"),
     express = require("express");
 
 process.stdout.on("error", function(err) {
@@ -13,14 +12,14 @@ process.stdout.on("error", function(err) {
 });
 
 var app = express(),
-    httpServer = http.createServer(app),
-    wss = new WebSocket.Server({server: httpServer});
+    httpServer = require("http").createServer(app);
 
 app.get("/test", function(req, res) {
     console.log(req);
 });
 httpServer.listen(process.env.PORT || 8000);
 
+var wsServer = null;
 var settings = {
     pingInterval: 30*1000, // ms
     sessionTimeout: 2*60*1000 // ms
@@ -41,10 +40,10 @@ var scrims = {};
 var tiers = ["Low", "Mid", "High", "High+", "High++"];
 var regions = ["SEA", "NA", "EU"];
 
-function idToConnection(id) {
-    wss.clients.forEach(function(c) {
-        if (c.id = id) return c;
-    });
+function idToClient(id) {
+    for (var i = 0; i < wsServer.connections.length; i++) {
+        if (wsServer.connections[i].id === id) return wsServer.connections[i];
+    }
     return null;
 }
 
@@ -74,9 +73,9 @@ function send(sid, header, body) {
     console.log(sid, "<-", header, body);
     sessions[sid].connections.forEach(function(id) {
         try {
+            var c = idToClient(id);
             console.log("Sending message to a client...");
-            var c = idToConnection(id);
-            if (c && c.readyState === WebSocket.OPEN) c.send(m.message);
+            if (c && c.readyState === c.OPEN) c.send(m.message);
         } catch(err) {
             console.log("Error:", errors.sendFailed, err);
         }
@@ -121,7 +120,7 @@ function merge(conn, sid) {
 }
 
 function update() {
-    console.log("Updating...");
+    console.log("Constructing message...");
     var data = [];
     for (k in scrims) {
         data.push(scrims[k]);
@@ -177,15 +176,15 @@ function handle(conn, data) {
 }
 
 pinger();
-wss.on("connection", function(ws) {
-    ws.id = uuid();
-    ws.sessionId = uuid();
-    sessions[ws.sessionId] = {connections: [ws.id], timeout: function() {}};
-    console.log(ws.sessionId, "connected.");
-    send(ws.sessionId, "IDENT", ws.sessionId);
+wsServer = ws.createServer(function(conn) {
+    conn.id = uuid();
+    conn.sessionId = uuid();
+    sessions[conn.sessionId] = {connections: [conn], timeout: function() {}};
+    console.log(conn.sessionId, "connected.");
+    send(conn.sessionId, "IDENT", conn.sessionId);
     update();
 
-    ws.on("message", function(str) {
+    conn.on("text", function(str) {
         var data;
         try {
             data = JSON.parse(str);
@@ -195,31 +194,30 @@ wss.on("connection", function(ws) {
         }
         if (!data) return;
         console.log("Received:", data);
-        handle(ws, data);
+        handle(conn, data);
     });
 
-    ws.on("close", function(code, reason) {
-        console.log(ws.id, "disconnected:", code, reason);
-        if (ws.sessionId in sessions) {
-            for (var i = 0; i < sessions[ws.sessionId].connections.length; i++) {
-                var id = sessions[ws.sessionId].connections[i];
-                if (id === ws.id) {
-                    sessions[ws.sessionId].connections.splice(i, 1);
+    conn.on("close", function(code, reason) {
+        console.log(conn.id, "disconnected:", code, reason);
+        if (conn.sessionId in sessions) {
+            for (var i = 0; i < sessions[conn.sessionId].connections.length; i++) {
+                var id = sessions[conn.sessionId].connections[i];
+                if (id === conn.id) {
+                    sessions[conn.sessionId].connections.splice(i, 1);
                     break;
                 }
             }
-            if (sessions[ws.sessionId].connections.length < 1) {
-                sessions[ws.sessionId].timeout = setTimeout(function() {
-                    delete scrims[ws.sessionId];
-                    delete sessions[ws.sessionId];
+            if (sessions[conn.sessionId].connections.length < 1) {
+                sessions[conn.sessionId].timeout = setTimeout(function() {
+                    delete scrims[conn.sessionId];
+                    delete sessions[conn.sessionId];
                     update();
                 }, settings.sessionTimeout);
             }
         }
     });
-});
+}).listen(httpServer);
 
 function uuid(a){
-    console.log("Constructing UUID...");
     return a?(a^Math.random()*16>>a/4).toString(16):([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,uuid)
 }
