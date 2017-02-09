@@ -14,7 +14,7 @@ process.stdout.on("error", function(err) {
 
 var app = express(),
     httpServer = http.createServer(app),
-    wss = new WebSocket.Server({httpServer});
+    wss = new WebSocket.Server({server: httpServer});
 
 app.get("/test", function(req, res) {
     console.log(req);
