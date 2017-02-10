@@ -11,19 +11,21 @@ process.stdout.on("error", function(err) {
     }
 });
 
-var app = express(),
-    httpServer = require("http").createServer(app);
-
-app.get("/test", function(req, res) {
-    console.log(req);
-});
-httpServer.listen(process.env.PORT || 8000);
-
 var wsServer = null;
 var settings = {
     pingInterval: 30*1000, // ms
     sessionTimeout: 2*60*1000 // ms
 };
+
+var app = express(),
+    httpServer = require("http").createServer(app);
+
+app.get("/", function(req, res) {
+    res.send("root");
+});
+app.use("/ws", wsServer);
+httpServer.listen(process.env.PORT || 8000);
+
 var errors = {
     msgFailed: "Message construction failed.",
     sendFailed: "Message sending failed.",
